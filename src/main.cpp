@@ -2,35 +2,41 @@
 
 #define PIN_LED 1
 
-void start_timer(void);
-
-void setup() {
-  pinMode(PIN_LED, OUTPUT);
-  start_timer();
-}
-
-void loop() {
-}
-
 void start_timer(void)
 {		
-  NRF_TIMER2->MODE = TIMER_MODE_MODE_Timer;  // Set the timer in Counter Mode
-  NRF_TIMER2->TASKS_CLEAR = 1;               // clear the task first to be usable for later
-	NRF_TIMER2->PRESCALER = 6;                             //Set prescaler. Higher number gives slower timer. Prescaler = 0 gives 16MHz timer
-	NRF_TIMER2->BITMODE = TIMER_BITMODE_BITMODE_16Bit;		 //Set counter to 16 bit resolution
-	NRF_TIMER2->CC[0] = 25000;                             //Set value for TIMER2 compare register 0
-	NRF_TIMER2->CC[1] = 5;                                 //Set value for TIMER2 compare register 1
-		
+  NRF_TIMER2->MODE = TIMER_MODE_MODE_Timer;
+  NRF_TIMER2->TASKS_CLEAR = 1;
+	NRF_TIMER2->PRESCALER = 7;
+	NRF_TIMER2->BITMODE = TIMER_BITMODE_BITMODE_32Bit;
+	NRF_TIMER2->CC[0] = 1000;
+	NRF_TIMER2->CC[1] = 500;
+  NRF_TIMER2->SHORTS = 1 << 0;
+
   // Enable interrupt on Timer 2, both for CC[0] and CC[1] compare match events
-	NRF_TIMER2->INTENSET = (TIMER_INTENSET_COMPARE0_Enabled << TIMER_INTENSET_COMPARE0_Pos) | (TIMER_INTENSET_COMPARE1_Enabled << TIMER_INTENSET_COMPARE1_Pos);
+	NRF_TIMER2->INTENSET =
+    (TIMER_INTENSET_COMPARE0_Enabled << TIMER_INTENSET_COMPARE0_Pos) |
+    (TIMER_INTENSET_COMPARE1_Enabled << TIMER_INTENSET_COMPARE1_Pos);
   NVIC_EnableIRQ(TIMER2_IRQn);
 		
   NRF_TIMER2->TASKS_START = 1;               // Start TIMER2
 }
 
-/** TIMTER2 peripheral interrupt handler. This interrupt handler is called whenever there it a TIMER2 interrupt
- */
+void timer_freq(int freq)
+{
+  int cnt = 125000 / freq;
+	NRF_TIMER2->CC[0] = cnt;
+	NRF_TIMER2->CC[1] = cnt / 2;
+}
+
+void timer_rpm(int rpm)
+{
+  int cnt = 125000 * 60 / rpm;
+	NRF_TIMER2->CC[0] = cnt;
+	NRF_TIMER2->CC[1] = cnt / 2;
+}
+
 extern "C" {
+
 void TIMER2_IRQHandler(void)
 {
 	if ((NRF_TIMER2->EVENTS_COMPARE[0] != 0) && ((NRF_TIMER2->INTENSET & TIMER_INTENSET_COMPARE0_Msk) != 0))
@@ -45,4 +51,14 @@ void TIMER2_IRQHandler(void)
 		NRF_GPIO->OUTCLR = 1 << PIN_LED;
   }
 }
+
+}
+
+void setup() {
+  pinMode(PIN_LED, OUTPUT);
+  start_timer();
+  timer_freq(1000);
+}
+
+void loop() {
 }
